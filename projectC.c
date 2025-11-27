@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #define Max 100
 struct Location{
@@ -8,7 +9,7 @@ struct Location{
 };
 struct Passenger{
     char name[50];
-    char phone[12];
+    char phone[15];
 };
 struct Trip{
     char tripId[20];
@@ -26,6 +27,7 @@ struct Ticket{
     double price;
     int paymentStatus;
     char date[20];
+    int status;
 };
 // Danh sach chuyen xe va ve
 struct Trip trips[Max];
@@ -34,45 +36,57 @@ struct Ticket tickets[Max];
 int ticketCount = 0;
 // Prototype
 void printMenu();
+void error(char *prompt, char *buffer, int size);
 void createNewTrip();
 void hienThiTrips();
 void updateTripInfo();
 void bookTicket();
-void checkTicketStatus();
-void error(char *prompt, char *buffer, int size);
+void checkTicket();
+void ticketShow();
 int isOnlyNumber(char *s);
 int seatIsBooked(char tripId[], int seat);
 void listTrips();
+void payTicket();
+void manageTicket();
 int main(){
     int choice;
-    char ch;
+    initSampleTrips();
     do {
         printMenu();
         printf("Nhap lua chon cua ban: ");
-        ch = getchar();
-        if(ch=='\n'){
-            printf("Vui long khong nhap phan tu rong!\n");
-            continue;
-        }
-        ungetc(ch, stdin);
-        if(scanf("%d", &choice)!=1){
-            while((ch=getchar())!='\n' && ch!=EOF);
-            printf("Ki tu khong duoc nhap!Vui long nhap lai.\n");
-            continue;
-        }
-        while((ch=getchar())!='\n' && ch!=EOF);
-        switch(choice){
-            case 1: createNewTrip(); break;
-            case 2: updateTripInfo(); break;
-            case 3: bookTicket(); break;
-            case 4: checkTicketStatus(); break;
-            case 5: listTrips(); break;
-            case 6: printf("Ban chon 6\n"); break;
-            case 7: printf("Ban chon 7\n"); break;
-            case 8: printf("Ban chon 8\n"); break;
-            case 9: printf("Thoat chuong trinh.\n"); break;
-            default: printf("Lua chon khong hop le! Vui long nhap lai.\n"); break;
-        }
+        char input[20];
+		fgets(input, sizeof(input), stdin);
+		// Xoa ky tu xuong dong
+		input[strcspn(input, "\n")] = 0;
+		// Kiem tra rong hoac chi co dau cach
+		int onlySpace = 1;
+		for(int i = 0; i < strlen(input); i++){
+			if(!isspace(input[i])){
+				onlySpace = 0;
+				break;
+			}
+		}
+		if(strlen(input) == 0 || onlySpace){
+		printf("Vui long khong nhap phan tu rong!\n");
+		continue;
+		}
+		if(!isOnlyNumber(input)){
+		printf("Ki tu khong duoc nhap! Vui long nhap lai.\n");
+		continue;
+	}
+	choice = atoi(input);
+    switch(choice){
+	case 1: createNewTrip();break;
+	case 2: updateTripInfo();break;
+	case 3: bookTicket();break;
+	case 4: checkTicket();break;
+	case 5: listTrips();break;
+	case 6: payTicket();break;
+	case 7: manageTicket();break;
+	case 8: printf("Ban chon 8\n");break;
+	case 9: printf("Thoat chuong trinh.\n"); break;
+	default: printf("Lua chon khong hop le! Vui long nhap lai.\n");break;
+}
     } while(choice!=9);
     return 0;
 }
@@ -117,10 +131,9 @@ int seatIsBooked(char tripId[], int seat){
 // Them chuyen xe moi
 void createNewTrip(){
     if(tripCount>=Max){
-        printf("Danh sach chuyen xe da day! Them that bai!\n");
-        return;
-    }
+        printf("Danh sach chuyen xe da day! Them that bai!\n");return;}
     struct Trip newTrip;
+    printf("+---------THEM CHUYEN XE MOI----------+\n");
     error("Nhap ma chuyen xe: ", newTrip.tripId, 20);
     for(int i=0;i<tripCount;i++){
         if(strcmp(trips[i].tripId,newTrip.tripId)==0){
@@ -139,22 +152,26 @@ void createNewTrip(){
         if(atoi(newTrip.totalSeats)<=0)
             printf("So ghe phai >0!\n");
     }while(atoi(newTrip.totalSeats)<=0);
+    printf("+-------------------------------------+\n");
     newTrip.bookedSeats=0;
     trips[tripCount++]=newTrip;
     printf("Them chuyen xe thanh cong!\n");
 }
 // Hien thi danh sach chuyen xe
 void hienThiTrips(){
-    printf("+-------DANH SACH CHUYEN XE-------+\n");
-    for(int i=0;i<tripCount;i++){
-        printf("Chuyen %d:\n",i+1);
-        printf("Ma: %s\n", trips[i].tripId);
-        printf("Di: %s - %s\n", trips[i].departure.name,trips[i].departure.address);
-        printf("Den: %s - %s\n", trips[i].destination.name,trips[i].destination.address);
-        printf("Ngay: %s\n", trips[i].date);
-        printf("Tong ghe: %s | Da dat: %d\n", trips[i].totalSeats,trips[i].bookedSeats);
-        printf("+-------------------------------+\n");
+    if(tripCount==0){
+        printf("Khong co chuyen xe nao!\n");
+        return;
     }
+    printf("+------------------------------------DANH SACH CHUYEN XE------------------------------------+\n");
+    printf("|%-5s|%-10s|%-15s|%-15s|%-20s|%-10s|%-10s|\n",
+           "STT","TripID","Diem Di","Diem Den","Ngay","Tong ghe","Da dat");
+    printf("+-------------------------------------------------------------------------------------------+\n");
+    for(int i=0;i<tripCount;i++){
+        printf("|%-5d|%-10s|%-15s|%-15s|%-20s|%-10s|%-10d|\n",
+            i+1,trips[i].tripId,trips[i].departure.name,trips[i].destination.name,trips[i].date,trips[i].totalSeats,trips[i].bookedSeats);
+    }
+    printf("+-------------------------------------------------------------------------------------------+\n");
 }
 // Cap nhat thong tin chuyen xe
 void updateTripInfo(){
@@ -212,7 +229,7 @@ void bookTicket(){
     }
     error("Nhap ten hanh khach: ", newTicket.passenger.name,50);
     do{
-        error("Nhap so dien thoai (10 chu so): ", newTicket.passenger.phone,12);
+        error("Nhap so dien thoai (10 chu so): ", newTicket.passenger.phone,15);
         if(!isOnlyNumber(newTicket.passenger.phone)||strlen(newTicket.passenger.phone)!=10)
             printf("So dien thoai phai la 10 chu so!\n");
     }while(!isOnlyNumber(newTicket.passenger.phone)||strlen(newTicket.passenger.phone)!=10);
@@ -230,14 +247,16 @@ void bookTicket(){
     newTicket.price=20000;
     error("Nhap ngay dat ve: ", newTicket.date,20);
     newTicket.paymentStatus=0;
+    newTicket.status = 0;
     // Tao ticketId
     sprintf(newTicket.ticketId,"TICKET%d",ticketCount+1);
     tickets[ticketCount++]=newTicket;
     t->bookedSeats++;
     printf("Dat ve thanh cong!\n");
+    
 }
 // Kiem tra tinh trang ve
-void checkTicketStatus(){
+void checkTicket(){
     if(ticketCount==0){ printf("Chua co ve nao!\n"); return; }
     char ticketId[20];
     error("Nhap ma ve can kiem tra: ", ticketId,20);
@@ -245,63 +264,81 @@ void checkTicketStatus(){
     for(int i=0;i<ticketCount;i++){
         if(strcmp(tickets[i].ticketId,ticketId)==0){
             found=1;
-            printf("+------------THONG TIN VE------------+\n");
-            printf("Ten hanh khach: %s\n", tickets[i].passenger.name);
-            printf("SDT: %s\n", tickets[i].passenger.phone);
-            for(int j=0;j<tripCount;j++){
-                if(strcmp(trips[j].tripId,tickets[i].tripId)==0){
-                    printf("Chuyen xe: %s\n", trips[j].tripId);
-                    printf("Di: %s - %s\n", trips[j].departure.name,trips[j].departure.address);
-                    printf("Den: %s - %s\n", trips[j].destination.name,trips[j].destination.address);
-                    printf("Ngay: %s\n", trips[j].date);
-                    break;
-                }
-            }
-            printf("So ghe: %d\n", tickets[i].seatNumber);
-            printf("Gia ve: %.0f VND\n", tickets[i].price);
-            printf("Trang thai thanh toan: %s\n", tickets[i].paymentStatus ? "Da thanh toan" : "Chua thanh toan");
-            printf("+-------------------------------------+\n");
-            break;
-        }
+            printf("+----------- THONG TIN VE -----------+\n");
+            printf("+----------------+-------------------+\n");
+			printf("|%-15s|%-20s|\n","Ma ve",tickets[i].ticketId);
+			printf("|%-15s|%-20s|\n","Hanh khach",tickets[i].passenger.name);
+			printf("|%-15s|%-20s|\n","SDT",tickets[i].passenger.phone);
+			printf("+----------------+-------------------+\n");
+    for(int j=0;j<tripCount;j++){
+        if(strcmp(trips[j].tripId,tickets[i].tripId)==0){
+        	printf("|%-15s|%-20s|\n","Chuyen xe",trips[j].tripId);
+			printf("|%-15s|%-20s|\n","Diem di",trips[j].departure.name);
+			printf("|%-15s|%-20s|\n","Diem den",trips[j].destination.name);
+			printf("|%-15s|%-20s|\n","Ngay",trips[j].date);
+			printf("+----------------+-------------------+\n");
+			break;
+			}
+		}
+		printf("|%-15s|%-20d|\n","So ghe",tickets[i].seatNumber);
+		printf("|%-15s|%-20.0f|\n","Gia ve",tickets[i].price);
+		const char *tt;
+		if(tickets[i].status==1) tt="Da khoa";
+		else if(tickets[i].status==2) tt="Da huy";
+		else tt = tickets[i].paymentStatus ? "Da thanh toan" : "Chua thanh toan";
+		printf("|%-15s|%-20s|\n","Trang thai", tt);
+		printf("+------------------------------------+\n");
+		break;
+		}
+	}
+	if(!found)
+	printf("Khong tim thay ve voi ma %s!\n",ticketId);
+	ticketShow();
+	return;
+}
+//hien thi ve hien co 
+void ticketShow(){
+	printf("+---------------------DANH SACH VE-------------------------+\n");
+    printf("|%-10s|%-15s|%-15s|%-15s|\n", "Ma ve", "Hanh khach", "SDT", "Trang thai");
+    printf("+----------------------------------------------------------+\n");
+    for(int i=0;i<ticketCount;i++){
+    	if(tickets[i].status == 2) continue;
+        printf("|%-10s|%-15s|%-15s|%-15s|\n",
+            tickets[i].ticketId,tickets[i].passenger.name,tickets[i].passenger.phone,tickets[i].paymentStatus ? "Da thanh toan" : "Chua thanh toan");
     }
-    if(!found) printf("Khong tim thay ve voi ma %s!\n",ticketId);
+    printf("+----------------------------------------------------------+\n");
 }
 void listTrips(){
     if(tripCount==0){
         printf("Khong co chuyen xe de hien thi!\n");
         return;
     }
-
     int pageSize=10;
     char input[20];
-    printf("Nhap so dong / trang (mac dinh 10): ");
+    printf("Nhap so dong / trang : ");
     fgets(input, sizeof(input), stdin);
     if(strlen(input) > 1)
         pageSize = atoi(input);
-
     if(pageSize <= 0){
         printf("pageSize phai > 0!\n");
         return;
     }
-
     int totalPages = (tripCount + pageSize - 1) / pageSize;
     int pageNumber = 1;
     char choice;
-
     do{
         int start = (pageNumber - 1) * pageSize;
         int end = start + pageSize;
         if(end > tripCount) end = tripCount;
-        
-    printf("+--------------------DANH SACH CHUYEN XE (Trang %d/%d)---------------------+\n",pageNumber,totalPages);
-    printf("|%-5s|%-10s|%-15s|%-15s|%-12s|%-10s|\n",
+    printf("+--------------------DANH SACH CHUYEN XE (Trang %d/%d)-------------------------+\n",pageNumber,totalPages);
+    printf("|%-5s|%-10s|%-15s|%-15s|%-16s|%-10s|\n",
            "STT","TripID","Diem Di","Diem Den","Ngay","Ghe");
-    printf("+-----+----------+---------------+---------------+------------+----------+\n");
+    printf("+-----+----------+---------------+---------------+----------------+----------+\n");
     for(int i=start;i<end;i++){
-        printf("|%-5d|%-10s|%-15s|%-15s|%-12s|%-10s|\n",
+        printf("|%-5d|%-10s|%-15s|%-15s|%-16s|%-10s|\n",
 		i+1,trips[i].tripId,trips[i].departure.name,trips[i].destination.name,trips[i].date,trips[i].totalSeats);
     }
-    printf("+------------------------------------------------------------------------+\n");
+    printf("+----------------------------------------------------------------------------+\n");
     printf("[N] Next | [P] Previous | [Q] Thoat\n");
         printf("Chon: ");
         choice = getchar();
@@ -314,3 +351,162 @@ void listTrips(){
             break;
     }while(1);
 }
+//thanh toan ticket
+void payTicket(){
+    if(ticketCount==0){
+        printf("Chua co ve nao!\n");
+        return;
+    }
+    char ticketId[20];
+    error("Nhap ma ve can thanh toan: ", ticketId, 20);
+    for(int i=0;i<ticketCount;i++){
+        if(strcmp(tickets[i].ticketId, ticketId)==0){
+            if(tickets[i].status != 0){
+                printf("Khong the thanh toan. Trang thai ve: %s\n",
+                    tickets[i].status==1?"Locked":"Canceled");
+                return;
+            }
+            if(tickets[i].paymentStatus==1){
+                printf("Ve nay da duoc thanh toan truoc do!\n");
+                return;
+            }
+            tickets[i].paymentStatus = 1;
+            printf("Thanh toan ve thanh cong!\n");
+            return;
+        }
+    }
+    printf("Khong tim thay ve %s!\n", ticketId);
+    ticketShow();
+}
+void manageTicket(){
+    if(ticketCount==0){
+        printf("Chua co ve nao!\n");
+        return;
+    }
+    char ticketId[20];
+    error("Nhap ma ve: ", ticketId, 20);
+    int found = 0;
+    for(int i=0;i<ticketCount;i++){
+        if(strcmp(tickets[i].ticketId, ticketId)==0){
+            found = 1;
+            if(tickets[i].status != 0){
+                printf("Khong the thao tac. Trang thai ve: %s\n",
+                    tickets[i].status==1?"Locked":"Canceled");
+                return;
+            }
+            int exit = 0;
+            do {
+                printf("\n+-----QUAN LY TRANG THAI VE-----+\n");
+                printf("|%-31s|\n","1. Khoa ve");
+                printf("|%-31s|\n","2. Huy ve");
+                printf("|%-31s|\n","3. Thoat");
+                printf("+-------------------------------+\n");
+                char buf[10];
+                printf("Chon: ");
+                fgets(buf, sizeof(buf), stdin);
+                buf[strcspn(buf, "\n")] = 0;
+                if(strlen(buf)==0){
+                    printf("Vui long khong nhap rong!\n");
+                    continue;
+                }
+                if(!isOnlyNumber(buf)){
+                    printf("Vui long nhap so!\n");
+                    continue;
+                }
+                int ch = atoi(buf);
+                if(ch==3){ exit = 1; break; }
+                if(ch!=1 && ch!=2){
+                    printf("Lua chon khong hop le!\n");
+                    continue;
+                }
+
+                if(ch==1){ // Khoa ve
+                    if(tickets[i].paymentStatus==0){
+                        printf("Khong the khoa ve chua thanh toan!\n");
+                    } else {
+                        tickets[i].status = 1;
+                        printf("Khoa ve thanh cong!\n");
+                    }
+                } else if(ch==2){ // Huy ve
+                    if(tickets[i].paymentStatus==1){
+                        printf("Khong the huy ve da thanh toan!\n");
+                    } else {
+                        tickets[i].status = 2; // Canceled
+                        // Giai phong ghe
+                        for(int j=0;j<tripCount;j++){
+                            if(strcmp(trips[j].tripId, tickets[i].tripId)==0){
+                                trips[j].bookedSeats--;
+                                break;
+                            }
+                        }
+                        printf("Huy ve thanh cong!\n");
+                    }
+                }
+            } while(!exit);
+
+            break;
+        }
+    }
+    if(!found){
+        printf("Khong tim thay ve!\n");
+        ticketShow();
+    }
+}
+void initSampleTrips() {
+    struct Trip t;
+    // Chuy?n xe 1
+    strcpy(t.tripId, "TX001");
+    strcpy(t.departure.name, "Ha Noi");
+    strcpy(t.departure.address, "Noi Bai");
+    strcpy(t.destination.name, "Hai Phong");
+    strcpy(t.destination.address, "Ben xe Hai Phong");
+    strcpy(t.date, "2025-12-01 08:00");
+    strcpy(t.totalSeats, "40");
+    t.bookedSeats = 0;
+    trips[tripCount++] = t;
+
+    // Chuy?n xe 2
+    strcpy(t.tripId, "TX002");
+    strcpy(t.departure.name, "Ha Noi");
+    strcpy(t.departure.address, "Noi Bai");
+    strcpy(t.destination.name, "Thanh Hoa");
+    strcpy(t.destination.address, "Ben xe Thanh Hoa");
+    strcpy(t.date, "2025-12-01 09:00");
+    strcpy(t.totalSeats, "35");
+    t.bookedSeats = 0;
+    trips[tripCount++] = t;
+
+    // Chuy?n xe 3
+    strcpy(t.tripId, "TX003");
+    strcpy(t.departure.name, "Da Nang");
+    strcpy(t.departure.address, "Ben xe Da Nang");
+    strcpy(t.destination.name, "Quang Ngai");
+    strcpy(t.destination.address, "Ben xe Quang Ngai");
+    strcpy(t.date, "2025-12-02 07:30");
+    strcpy(t.totalSeats, "30");
+    t.bookedSeats = 0;
+    trips[tripCount++] = t;
+
+    // Chuy?n xe 4
+    strcpy(t.tripId, "TX004");
+    strcpy(t.departure.name, "Ho Chi Minh");
+    strcpy(t.departure.address, "Ben xe Mien Dong");
+    strcpy(t.destination.name, "Vung Tau");
+    strcpy(t.destination.address, "Ben xe Vung Tau");
+    strcpy(t.date, "2025-12-02 10:00");
+    strcpy(t.totalSeats, "50");
+    t.bookedSeats = 0;
+    trips[tripCount++] = t;
+
+    // Chuy?n xe 5
+    strcpy(t.tripId, "TX005");
+    strcpy(t.departure.name, "Can Tho");
+    strcpy(t.departure.address, "Ben xe Can Tho");
+    strcpy(t.destination.name, "Soc Trang");
+    strcpy(t.destination.address, "Ben xe Soc Trang");
+    strcpy(t.date, "2025-12-03 06:00");
+    strcpy(t.totalSeats, "25");
+    t.bookedSeats = 0;
+    trips[tripCount++] = t;
+}
+
